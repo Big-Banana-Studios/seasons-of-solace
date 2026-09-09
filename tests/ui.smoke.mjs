@@ -270,7 +270,7 @@ try {
   check('the tagline is there',
     (await text(page, '.brand-sub')) === 'Every season of grief has a place here.');
   check('the version reads as the brief formats it',
-    (await text(page, '#version')) === 'v1.0.0 · Sep 2026');
+    (await text(page, '#version')) === 'v1.1.0 · Sep 2026');
   check('submit is enabled — the crisis card must not wait on a download',
     await page.eval('return !document.getElementById("submitBtn").disabled'));
   check('the fonts loaded from this folder',
@@ -428,6 +428,13 @@ try {
   await sleep(150);
   check('  and a birthday gets the reminder written for birthdays, at once',
     (await text(page, '#output')).startsWith('A birthday without them'));
+  await type(page, 'I found his handwriting on a shopping list in a coat pocket today.');
+  await click(page, '#submitBtn');
+  await sleep(150);
+  check('  and a day no theme fits gets one from the bank, not a wait for the model',
+    await page.eval(`
+      const s = await import('./safety.js');
+      return s.REMINDERS.includes(document.getElementById('output').innerText.trim());`));
   await click(page, '#clearBtn');
 
   await page.eval('document.querySelector(\'[data-tab="say"]\').click(); return 1;');
@@ -487,6 +494,28 @@ try {
       const keys = Object.keys(localStorage);
       const allowed = ['seasonsOfSolace_welcomed', 'seasonsOfSolace_theme', 'seasonsOfSolace_textSize', 'seasonsOfSolace_modelCached'];
       return keys.every((k) => allowed.includes(k)) && !JSON.stringify(localStorage).includes('I want to die');`));
+
+  await click(page, '#installBtn');
+  check('the add-to-home-screen panel opens',
+    await page.eval('return !document.getElementById("install").hidden'));
+  check('it offers something usable, whichever route the browser allows',
+    await page.eval(`
+      const steps = document.getElementById('installSteps').innerText;
+      // Either a real one-tap install, or that device's actual instructions.
+      return /Add it now/.test(steps) || /Share|menu|address bar/.test(steps);`));
+  check('focus moves into the install panel',
+    await page.eval('return document.getElementById("install").contains(document.activeElement)'));
+  await page.shot('15-install');
+  await page.eval(`
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return 1;`);
+  check('escape closes it', await page.eval('return document.getElementById("install").hidden'));
+  check('the manifest has what an install needs',
+    await page.eval(`
+      const m = await (await fetch('./manifest.webmanifest')).json();
+      return m.display === 'standalone' && m.start_url === './'
+        && m.icons.some((i) => i.type === 'image/png' && i.sizes === '192x192')
+        && m.icons.some((i) => i.type === 'image/png' && i.sizes === '512x512');`));
 
   await click(page, '#aboutBtn');
   await sleep(150);

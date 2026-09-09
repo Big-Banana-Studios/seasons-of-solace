@@ -1,6 +1,6 @@
 {
   "name": "seasons-of-solace",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Seasons of Solace — an on-device grief companion.",
   "type": "module",

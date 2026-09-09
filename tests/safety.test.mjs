@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  checkInput, checkOutput, checkShape, ensureClose, isCrisis, bannedPhrase, jargon,
+  checkInput, checkOutput, checkShape, ensureClose, isCrisis, bannedPhrase, jargon, addressedByName, stripVocative,
   scrub, trimSignOff, tidyOptions, capLength, fallback, warmFallback, outputWentWrong,
   composeToday, composeTelling, waveInstant, reminderInstant, themedReminder,
   CRISIS_RESPONSE, CRISIS_NOTE, BLOCKED_MESSAGE, TOO_LONG_MESSAGE,
@@ -484,6 +484,59 @@ test('a hint at a crisis line with no crisis is untidy, not a crisis', () => {
   assert.equal(checkOutput(text), 'jargon');
 });
 
+test("a thinking model's reasoning never reaches the person", () => {
+  const leaked = 'The user is sharing her grief. Looking at my safety guidelines, this does not contain suicidal ideation.\n\nThat sounds heavy and I am here with you tonight.';
+  assert.equal(checkOutput(leaked), 'presence');
+  const tagged = '<think>\nThe user is grieving. I should acknowledge warmly.\n</think>\n\nThat sounds incredibly heavy. I can hear how much you miss him, and I am here.';
+  assert.equal(scrub(tagged), 'That sounds incredibly heavy. I can hear how much you miss him, and I am here.');
+  assert.equal(checkOutput(scrub(tagged)), null);
+  assert.equal(scrub('That sounds heavy.</think>That sounds heavy, and I am here with you.'), 'That sounds heavy, and I am here with you.');
+  assert.equal(checkOutput('This falls under complicated grief, which is clinical territory, and I must respond carefully here.'), 'presence');
+});
+
+test('"sorry for your loss" is caught however it is worded', () => {
+  for (const text of [
+    "I'm so sorry for losing your husband. That weight doesn't disappear.",
+    "I'm sorry about your loss. It sounds heavy.",
+    "I am truly sorry to hear that. It sounds heavy.",
+    "I'm sorry that you are carrying this alone tonight.",
+  ]) {
+    assert.equal(bannedPhrase(text), "I'm sorry for your loss", text);
+  }
+  assert.equal(bannedPhrase("I'm not going to say I'm sorry for your loss, because it is the emptiest phrase there is."), null);
+  assert.equal(bannedPhrase("You don't have to say sorry for anything. Nobody is keeping score."), null);
+});
+
+test('the writer is never addressed by the dead person\'s name', () => {
+  const input = 'My dad, Ray, used to whistle while he fixed things in the garage. He called me kiddo until the day he died.';
+  assert.equal(addressedByName('Ray, I can hear how much you missed him. That detail stays with you.', input), true);
+  assert.equal(addressedByName('That detail stays with you. What else do you remember, Ray?', input), true);
+  assert.equal(addressedByName('Ray sounds like he filled the garage with noise. What else do you remember about him?', input), false);
+  assert.equal(checkOutput('Ray, I can hear how much you missed him, especially when he whistled in the garage.', { input }), 'presence');
+  assert.equal(checkOutput('Ray sounds like the kind of person who filled every room he walked into. What else do you remember about the garage?', { input }), null);
+  // And repaired rather than thrown away, where the rest of the reply is good.
+  assert.equal(stripVocative('Ray, I can hear how much you missed him. What else do you remember, Ray?', input),
+    'I can hear how much you missed him. What else do you remember?');
+  assert.equal(stripVocative('That detail stays with you. Ray, what else comes back?', input),
+    'That detail stays with you. What else comes back?');
+  assert.equal(stripVocative('Ray sounds like he filled the garage with noise.', input), 'Ray sounds like he filled the garage with noise.');
+  assert.equal(checkOutput(stripVocative('Ray, I can hear how much you missed him, especially when he whistled in the garage.', input), { input }), null);
+  // Sentence openers that happen to be capitalised are not names.
+  assert.ok(!addressedByName('Honestly, that is a lot to carry. Sometimes, it helps to say it out loud.', 'Honestly I do not know what I feel. Sometimes I go numb.'));
+  assert.ok(!addressedByName('Honestly, that is a lot to carry.', 'my wife Sarah died and honestly I am lost'));
+  assert.equal(addressedByName('Anything at all.', 'nothing capitalised here'), null);
+});
+
+test('therapy-speak about growth and resilience is untidy', () => {
+  assert.equal(checkOutput("Existing alongside the absence is itself a form of resilience, and there's room for growth within the pain too."), 'jargon');
+});
+
+test('a near-miss close two sentences from the end goes too', () => {
+  const wave = "I'm right here. You can tell me what happened, or you can just sit here. Either way, I'm not going anywhere.";
+  assert.equal(ensureClose("She's still part of you. I'm right here. You can sit with whatever comes up, or you can stand and breathe.", wave),
+    `She's still part of you.\n\n${wave}`);
+});
+
 test('a dangling quotation mark is dropped', () => {
   assert.equal(scrub('That sounds heavy. What comes up for you?"'), 'That sounds heavy. What comes up for you?');
   assert.equal(scrub('She said "come home" and I did.'), 'She said "come home" and I did.');
@@ -540,6 +593,7 @@ test('the companion inserting itself into a memory is caught', () => {
   assert.equal(checkOutput('That sound meant everything to both of us, and it reminded me of how much he loved fixing things.'), 'presence');
   assert.equal(checkOutput("I see him now as part of the story we're writing together, and that story is still going."), 'presence');
   assert.equal(checkOutput("How he whistled, how he kept tools handy, and the way he'd hold my hand when we worked together."), 'presence');
+  assert.equal(checkOutput('I can still picture him at work, hands busy. Now I think about those days sometimes, the smell of oil.'), 'presence');
   assert.equal(checkOutput('I can picture that so clearly from how you describe it. He sounds like he filled every room he walked into.'), null);
 });
 
@@ -576,6 +630,10 @@ test('options written in the coworker\'s voice are removed, with their label', (
   assert.match(tidy, /day by day/);
   assert.match(tidy, /really hard for me/);
   assert.equal(checkShape(tidy, 'options'), null);
+
+  // Commentary that quotes an option back is not an option.
+  const commentary = '**If you want to keep it short:** "I\'m taking it day by day."\n\n**If you want to be honest:** "I\'m not doing great right now."\n\nThese aren\'t scripts. Saying "I\'m taking it day by day" doesn\'t mean you\'re fine.';
+  assert.equal(tidyOptions(commentary), '**If you want to keep it short:** "I\'m taking it day by day."\n\n**If you want to be honest:** "I\'m not doing great right now."');
 
   // A label on its own line above the bad quote goes with it.
   const split = '**If you want to keep it short:** "I\'m taking it day by day."\n\n**If you\'re telling colleagues:**\n"Just take care of yourself. If you need to talk later, I\'m here."';

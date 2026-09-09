@@ -54,12 +54,13 @@
       <button class="foot-btn" id="themeToggle" type="button" aria-pressed="false">🌙 Night mode</button>
       <button class="foot-btn" id="textSizeBtn" type="button">🔠 Text size: normal</button>
       <button class="foot-btn" id="aboutBtn" type="button">🍃 About</button>
+      <button class="foot-btn" id="installBtn" type="button">📲 Add to home screen</button>
       <p class="status" id="status">
         <span class="status-dot" aria-hidden="true"></span>
         <span class="status-mark" id="statusMark" aria-hidden="true"></span>
         <span id="statusText">Checking…</span>
       </p>
-      <p class="version" id="version">v1.0.0 · Sep 2026</p>
+      <p class="version" id="version">v1.1.0 · Sep 2026</p>
     </footer>
   </aside>
 
@@ -123,6 +124,22 @@
 </div>
 
 <div class="welcome" id="welcome" hidden></div>
+
+<!-- Add to home screen. Chrome and Edge give the page a real install prompt
+     it can fire from a button; iOS has no such thing, so there it shows the
+     steps. Filled in by app.js for whichever device is reading it. -->
+<div class="modal" id="install" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+    <h2 id="installTitle">Add to your home screen</h2>
+    <p>
+      This puts Seasons of Solace on your home screen with its own icon, so it
+      opens like any other app — no browser bars, no hunting for a link. It is
+      the same app either way; nothing extra is downloaded.
+    </p>
+    <div id="installSteps"></div>
+    <button class="btn" id="installClose" type="button">Close</button>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

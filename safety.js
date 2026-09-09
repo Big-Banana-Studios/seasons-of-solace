@@ -198,7 +198,7 @@ const PLATITUDES = [
   { label: 'everything happens for a reason', re: /\beverything\s+happens\s+for\s+a\s+reason\b/, negatable: true },
   { label: 'happens for a reason', re: /\bhappen(s|ed)?\s+for\s+a\s+reason\b/, negatable: true },
   { label: 'in a better place', re: /\b(in|to|at)\s+a\s+better\s+place\b/, negatable: true, allowIf: /\bbetter\s+place\b/ },
-  { label: "I'm sorry for your loss", re: /\bsorry\s+for\s+your\s+loss\b/, negatable: true },
+  { label: "I'm sorry for your loss", re: /\bsorry\s+(for|about)\s+(your|the)\s+loss\b|\bsorry\s+(for|about)\s+(losing|the\s+loss\s+of)\b|\b(i'?m|i\s+am)\s+(so\s+|very\s+|truly\s+|deeply\s+|really\s+)?sorry\s+(for|about|to\s+hear|that\s+you)\b/, negatable: true },
   { label: 'time heals', re: /\btime\s+(heals|will\s+heal|is\s+a\s+(great\s+)?healer)\b/, negatable: true },
   { label: 'stay strong', re: /\b(stay|be|remain|keep)\s+strong\b/, negatable: true },
   { label: 'I know how you feel', re: /\bi\s+know\s+(exactly\s+)?(how|what)\s+you('re|\s+are)?\s+(feel|feeling|going\s+through)\b/, negatable: true },
@@ -248,12 +248,22 @@ const PRESENCE_BREAK = [
   /\bbetween\s+us\b/, /\bboth\s+of\s+us\b/, /\bthe\s+two\s+of\s+us\b/, /\b(to|for|around|left|with|among|gave)\s+us\b/,
   /\bwe('re|\s+are)\s+both\b/, /\bconnected\s+we\s+are\b/,
   /\bin\s+my\s+(mind|memory|memories|heart)\b/,
-  /\bi\s+(remember|recall|knew|met|miss|missed|loved|can\s+(still\s+)?(hear|see))\s+(him|her|them)\b/,
+  /\bi\s+(remember|recall|knew|met|miss|missed|loved|can\s+(still\s+)?(hear|see|picture))\s+(him|her|them)\b/,
+  /\b(now\s+)?i\s+think\s+(about|of)\s+(those|him|her|them|that\s+day)\b/,
+  /\bi\s+(still\s+)?(smell|taste|feel)\s+(the|his|her|their)\b/,
   /\b(reminded|reminds)\s+(me|us)\b/,
   /\bwe('re|\s+are)\s+(writing|going\s+through|carrying|in\s+this|sharing)\b/,
   /\b(hold|held|holding|took|take|squeeze|squeezed)\s+my\s+(hand|arm|shoulder)\b/,
   /\bwe\s+(worked|played|sat|laughed|talked|shared|spent|lived|grew\s+up|fixed|built|cooked)\s+together\b/,
   /\bwhen\s+we\s+(worked|were|played|sat|talked)\b/,
+  // A thinking model's analysis leaking into the reply: it talks about
+  // "the user" and "my guidelines" and diagnoses in clinical words.
+  /\bthe\s+user\b/, /\bthe\s+user'?s\b/,
+  /\bmy\s+(safety\s+)?(guidelines|instructions|protocol|role)\b/,
+  /\baccording\s+to\s+my\b/,
+  /\b(suicidal\s+ideation|self-harm\s+thoughts|crisis[- ]level|clinical|diagnos(is|e|ed))\b/,
+  /\bthis\s+(falls|appears\s+to\s+fall|seems\s+to\s+fall)\s+under\b/,
+  /\bi\s+(should|must|need\s+to)\s+(acknowledge|respond|detect|avoid|follow|provide|offer)\b/,
 ];
 
 /* Untidy rather than wrong. Worth one retry; never worth throwing an
@@ -274,6 +284,7 @@ const JARGON = [
   /\bself[\s-]?care\b/, /\bcoping\s+(strategies|mechanisms|skills)\b/,
   /\byour\s+healing\b/, /\bheal(s|ing|ed)?\s+(in|with|over)\s+time\b/, /\bhealing\s+(will|comes|takes|happens|begins|starts)\b/,
   /\bpart\s+of\s+(healing|grieving|the\s+grief)\b/,
+  /\b(room|opportunity|space|a\s+chance)\s+(for|to)\s+(growth|grow|heal)\b/, /\bresilien(ce|t)\b/, /\bgrowth\s+within\b/,
   /\blet(ting)?\s+go\b/, /\b(we|us)\s+all\b/,
   // A hint at a crisis line with no crisis: "a line open 24 hours a day".
   // The number is in the footer already; the hint is the model being
@@ -440,8 +451,13 @@ export function tidyOptions(text) {
   }
   // Nothing after the last option: the brief says so, and the model's
   // "Remember — what you choose doesn't change…" paragraphs are padding.
+  // An option is a line that opens with its label or with the quote itself;
+  // a paragraph that merely quotes one back ("saying 'day by day' doesn't
+  // mean you're fine") is commentary, and goes.
   let last = -1;
-  kept.forEach((line, i) => { if (/["“][^"”]{6,}["”]/.test(line)) last = i; });
+  kept.forEach((line, i) => {
+    if (/^\s*(\*\*[^*\n]+\*\*:?\s*)?["“][^"”]{6,}/.test(line) || /^\s*\*\*[^*\n]+\*\*:?\s*$/.test(line)) last = i;
+  });
   const trimmed = last >= 0 ? kept.slice(0, last + 1) : kept;
   return trimmed.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -491,7 +507,11 @@ export function ensureClose(text, close, { dropQuestion = false } = {}) {
   if (!/^\s*(?:[-*•]|\d+[.)])\s/.test(tail)) {
     const nearMiss = /not going anywhere|going nowhere|right here|that counts|that matters|that is enough|that's enough|you're here|you are here|take your time|trusting (this|me)|takes courage|thank you for (trusting|sharing|telling)|feel close|naming it|figured out|is enough for (right )?now/;
     const sentences = tail.split(/(?<=[.!?])\s+/);
-    while (sentences.length && nearMiss.test(flatten(sentences[sentences.length - 1]))) sentences.pop();
+    // The near miss is usually the last sentence; sometimes it is the one
+    // before ("I'm right here. You can sit with whatever comes up."), in
+    // which case both go — the close says it properly.
+    const isNear = (i) => i >= 0 && i < sentences.length && nearMiss.test(flatten(sentences[i]));
+    while (sentences.length && (isNear(sentences.length - 1) || isNear(sentences.length - 2))) sentences.pop();
     // Where the close asks its own question, the model's question goes.
     while (dropQuestion && sentences.length && /\?\s*$/.test(sentences[sentences.length - 1])) sentences.pop();
     tail = sentences.join(' ').trim();
@@ -499,6 +519,48 @@ export function ensureClose(text, close, { dropQuestion = false } = {}) {
   if (tail) lines.push(tail);
   const body = lines.join('\n').trim();
   return body ? `${body}\n\n${close}` : close;
+}
+
+/* The writer addressed by the dead person's name. "My dad, Ray, used to
+   whistle" — and the reply opens "Ray, I can hear how much you missed him."
+   The app never knows the writer's name, so a reply that speaks to anyone
+   by name is speaking to the wrong person. Names are taken from the
+   person's own words: capitalised words that do not start a sentence. */
+const NOT_NAMES = new Set(['I', 'Im', 'Ive', 'Id', 'Ill', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Christmas', 'Easter', 'Thanksgiving', 'God', 'Mum', 'Mom', 'Dad', 'Nan', 'Gran', 'Grandma', 'Grandad', 'Grandpa']);
+
+function namesIn(input) {
+  const names = new Set();
+  for (const m of String(input || '').matchAll(/(?<=[^.!?\n]\s)([A-Z][a-z]{1,15})\b/g)) {
+    if (!NOT_NAMES.has(m[1].replace(/'/g, ''))) names.add(m[1]);
+  }
+  return [...names];
+}
+
+export function addressedByName(output, input) {
+  const names = namesIn(input);
+  if (!names.length) return null;
+  const alt = names.join('|');
+  const out = String(output || '');
+  // Vocative at the start of a sentence, or at the end of one.
+  if (new RegExp(`(^|[.!?]\\s+)(${alt}),\\s`).test(out)) return true;
+  if (new RegExp(`,\\s+(${alt})[.!?]`).test(out)) return true;
+  return false;
+}
+
+/* Repairs the vocative rather than throwing the reply away: "Ray, I can hear
+   how much you missed him" becomes "I can hear how much you missed him."
+   The bigger model does this on Remember Them about one time in three, and
+   the rest of the reply is usually the best it writes. */
+export function stripVocative(output, input) {
+  const names = namesIn(input);
+  let out = String(output || '');
+  if (!names.length) return out;
+  const alt = names.join('|');
+  out = out.replace(new RegExp(`(^|[.!?]\\s+)(?:${alt}),\\s+([a-zA-Z"“])`, 'g'), (m, before, next) => (
+    `${before}${before === '' ? next.toUpperCase() : next.toUpperCase()}`
+  ));
+  out = out.replace(new RegExp(`,\\s+(?:${alt})([.!?])`, 'g'), '$1');
+  return out;
 }
 
 /* Everything the model produced arrives here in one piece. Returns null when
@@ -527,6 +589,7 @@ export function checkOutput(text, { input = '' } = {}) {
   if (phrase) return `platitude:${phrase}`;
 
   if (PRESENCE_BREAK.some((p) => p.test(t))) return 'presence';
+  if (addressedByName(raw, input)) return 'presence';
   if (PET_NAMES.test(t)) return 'petname';
   if (jargon(raw)) return 'jargon';
 
@@ -557,6 +620,11 @@ export function scrub(text) {
   // straighten their own copy. Only the ellipsis character is flattened,
   // because the font has no glyph for it worth keeping.
   let t = String(text || '').replace(/…/g, '...');
+  // A thinking model's reasoning, if any got through: everything up to the
+  // last closing tag is the model talking to itself, never to the person.
+  const think = t.lastIndexOf('</think>');
+  if (think >= 0) t = t.slice(think + '</think>'.length);
+  t = t.replace(/<\/?think>/g, '');
   t = t.replace(/https?:\/\/\S+|www\.\S+/gi, '');
   t = t.replace(/\b[\w.+-]+@[\w-]+\.[\w.]+\b/g, '');
   // Phone numbers other than the two on the crisis card. If the model

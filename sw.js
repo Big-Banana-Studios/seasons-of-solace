@@ -4,13 +4,13 @@
    Transformers.js library). It does NOT cache the model. Transformers.js keeps
    the model weights and the ONNX Runtime binaries in its own cache under
    'transformers-cache', so the two never overlap — and we must never delete a
-   cache we did not create, because that would throw away an 814MB download.
+   cache we did not create, because that would throw away a 1.7 GB download.
 
    Nothing a person types passes through here. The worker only ever sees
    requests for files. */
 
 // Keep identical to APP_VERSION in app.js.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const SHELL = `seasons-of-solace-shell-${VERSION}`;
 
 // Keep identical to the import in worker.js.

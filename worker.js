@@ -28,7 +28,13 @@ import {
 
 import { outputWentWrong } from './safety.js';
 
-const MODEL_ID = 'LiquidAI/LFM2.5-1.2B-Instruct-ONNX';
+/* The 2.6B model. The app shipped on LFM2.5-1.2B-Instruct-ONNX (814 MB),
+   which loads faster and runs on more phones, but its replies were generic
+   — "healing journey", "sit with these sensations together" — and a grief
+   companion that sounds like a poster is not worth having. Keep MODEL_MB
+   in app.js in step with whatever is chosen here.
+     Smaller: 'LiquidAI/LFM2.5-1.2B-Instruct-ONNX'  (~814 MB at q4)          */
+const MODEL_ID = 'LiquidAI/LFM2.5-2.6B-ONNX';
 const DTYPE = 'q4';
 
 // No model files ship with this site — GitHub Pages cannot host an 814MB file —
@@ -127,23 +133,35 @@ async function generate({ id, system, input, maxTokens, temperature = 0.6, shown
      Wrapped in a try because it depends on the tokenizer accepting the
      untokenised form of the template. If it ever doesn't, an ordinary prompt
      is far better than a broken app, and the output checks catch the rest. */
+  /* Thinking off.
+
+     LFM2.5-2.6B is a thinking model: its chat template opens every reply
+     with "<think>", and left alone the model writes a page of analysis —
+     "The user is sharing her grief… looking at my safety guidelines…" —
+     before a word of the reply, spending the whole token budget on it. None
+     of that is for the person. There is no switch in the template, so the
+     think block is closed here before generation starts, and the model
+     answers directly. The 1.2B template has no "<think>", and this leaves
+     it alone. */
   let inputs = null;
   let opener = prefill || '';
 
-  if (opener) {
-    try {
-      const promptText = tokenizer.apply_chat_template(messages, {
-        tokenize: false,
-        add_generation_prompt: true,
-      });
-      if (typeof promptText !== 'string' || !promptText) throw new Error('template did not render');
+  try {
+    const promptText = tokenizer.apply_chat_template(messages, {
+      tokenize: false,
+      add_generation_prompt: true,
+    });
+    if (typeof promptText !== 'string' || !promptText) throw new Error('template did not render');
+    const thinks = /<think>\s*$/.test(promptText);
+    if (thinks || opener) {
+      const hidden = thinks ? '</think>\n\n' : '';
       // add_special_tokens: false because the template has already put them in.
-      inputs = tokenizer(promptText + opener, { add_special_tokens: false });
-    } catch (err) {
-      console.warn('Prefill unavailable, using the plain prompt:', err);
-      inputs = null;
-      opener = '';
+      inputs = tokenizer(promptText + hidden + opener, { add_special_tokens: false });
     }
+  } catch (err) {
+    console.warn('Prefill unavailable, using the plain prompt:', err);
+    inputs = null;
+    opener = '';
   }
 
   if (!inputs) {

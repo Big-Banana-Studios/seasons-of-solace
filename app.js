@@ -23,7 +23,7 @@ import {
   PHRASE_CORRECTION, CLARITY_CORRECTION, SAY_FORMAT_CORRECTION, LIST_FORMAT_CORRECTION,
 } from './prompts.js';
 import {
-  checkInput, checkOutput, checkShape, ensureClose, scrub, trimSignOff, tidyOptions, capLength, warmFallback,
+  checkInput, checkOutput, checkShape, ensureClose, scrub, trimSignOff, tidyOptions, stripVocative, capLength, warmFallback,
   composeToday, composeTelling, waveInstant, reminderInstant, themedReminder,
   CRISIS_RESPONSE, CRISIS_NOTE, WAVE_FALLBACK, SAY_FALLBACK, QUIET_FALLBACK, reminderFallback,
   MAX_INPUT_CHARS,
@@ -31,11 +31,11 @@ import {
 import { createWelcome, hasSeenWelcome } from './welcome.js';
 
 // Bump on every deploy, and keep APP_VERSION identical to VERSION in sw.js.
-const APP_VERSION = 'v1.0.0';
+const APP_VERSION = 'v1.1.0';
 const VERSION_DATE = 'Sep 2026';
 
-const MODEL_MB = 814;                    // measured from the Hugging Face CDN
-const NEEDED_BYTES = 1.1 * 1073741824;   // the model, the runtime, and headroom
+const MODEL_MB = 1770;                   // LFM2.5-2.6B at q4, measured from the Hugging Face CDN
+const NEEDED_BYTES = 2.2 * 1073741824;   // the model, the runtime, and headroom
 
 const CACHED_FLAG = 'seasonsOfSolace_modelCached';
 const THEME_KEY = 'seasonsOfSolace_theme';
@@ -56,6 +56,7 @@ const el = {
   status: $('status'), statusText: $('statusText'), statusMark: $('statusMark'),
   themeToggle: $('themeToggle'), themeToggleTop: $('themeToggleTop'),
   textSizeBtn: $('textSizeBtn'), aboutBtn: $('aboutBtn'),
+  installBtn: $('installBtn'), install: $('install'), installSteps: $('installSteps'), installClose: $('installClose'),
   menuToggle: $('menuToggle'), sidebar: $('sidebar'), scrim: $('scrim'),
   toast: $('toast'), version: $('version'),
   gate: $('gate'), gateTitle: $('gateTitle'), gateBody: $('gateBody'), gateAction: $('gateAction'),
@@ -372,10 +373,12 @@ function run() {
     return;
   }
 
-  // A reminder for a kind of day people have written one for already.
+  // A reminder for a kind of day people have written one for already — and,
+  // for a day none of them fit, one from the bank rather than the model.
   if (!empty && tab.themedFirst) {
     const themed = themedReminder(text);
     if (themed) { instant(themed); return; }
+    if (tab.bankWhenUnmatched) { instant(reminderInstant()); return; }
   }
 
   if (!modelReady) {
@@ -465,7 +468,7 @@ function finish(raw) {
   const tabId = pendingTab;
   const tab = TAB_BY_ID[tabId];
 
-  let cleaned = trimSignOff(scrub(String(raw || '')), { keepQuestion: !!tab.keepQuestion });
+  let cleaned = trimSignOff(stripVocative(scrub(String(raw || '')), pendingRun.shown), { keepQuestion: !!tab.keepQuestion });
   if (tab.shape === 'options') cleaned = tidyOptions(cleaned);
   const close = tab.compose ? null : (pendingRun.empty ? tab.closeEmpty : tab.close) || null;
   const finished = (text) => composeIfNeeded(
@@ -551,8 +554,9 @@ const hideGate = () => { el.gate.hidden = true; el.bar.hidden = true; };
 
 function startDownload() {
   /* Ask the browser to keep this. Phones clear cached site data for sites you
-     have not opened in a while, and being asked for 814 MB again because you
-     had a quiet fortnight is the fastest way to lose someone's trust. */
+     have not opened in a while, and being asked for the whole model again
+     because you had a quiet fortnight is the fastest way to lose someone's
+     trust. */
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => { /* nothing to do about a no */ });
   }
@@ -879,6 +883,76 @@ async function showVersion() {
     + 'Reload once more to pick up the new version.';
 }
 
+/* ------------------------------------------------- add to home screen
+
+   Chrome and Edge fire beforeinstallprompt, which can be saved and fired
+   later from a button of our own — one tap, a proper install. iOS has no
+   such API at all: on an iPhone the only way is Share → Add to Home Screen,
+   by hand, and pretending otherwise would leave somebody tapping a button
+   that does nothing. So the button always opens a panel. If the browser gave
+   us a real prompt, the panel offers it. If not, it gives that device's
+   actual steps. */
+
+let installEvent = null;
+
+const alreadyInstalled = () => window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone === true;
+
+const INSTALL_STEPS = {
+  ios:
+    '<p><strong>On an iPhone or iPad, in Safari:</strong></p>'
+    + '<ol class="install-steps"><li>Tap the <strong>Share</strong> button — the '
+    + 'square with an arrow coming out of it.</li>'
+    + '<li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>'
+    + '<li>Tap <strong>Add</strong>.</li></ol>'
+    + '<p class="install-note">Safari is the one that does this. If you are '
+    + 'reading this in another browser on an iPhone, open the page in Safari first.</p>',
+  android:
+    '<p><strong>On Android, in Chrome:</strong></p>'
+    + '<ol class="install-steps"><li>Tap the <strong>⋮</strong> menu at the top right.</li>'
+    + '<li>Tap <strong>Add to Home screen</strong>, or <strong>Install app</strong> '
+    + 'if you see that instead.</li>'
+    + '<li>Tap <strong>Install</strong>.</li></ol>',
+  desktop:
+    '<p><strong>On a computer, in Chrome or Edge:</strong></p>'
+    + '<ol class="install-steps"><li>Look for the install icon at the right-hand '
+    + 'end of the address bar.</li>'
+    + '<li>Or open the <strong>⋮</strong> menu and choose '
+    + '<strong>Install Seasons of Solace</strong>.</li></ol>',
+};
+
+function openInstall() {
+  closeSidebar();
+  if (installEvent) {
+    el.installSteps.innerHTML =
+      '<p>Your browser can do this in one tap.</p>'
+      + '<button class="btn install-now" id="installNow" type="button">Add it now</button>';
+    $('installNow').addEventListener('click', async () => {
+      const prompt = installEvent;
+      installEvent = null;              // a prompt can only be used once
+      closeInstall();
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
+      if (outcome === 'accepted') {
+        el.installBtn.hidden = true;
+        toast('Added to your home screen');
+      }
+    });
+  } else {
+    el.installSteps.innerHTML = INSTALL_STEPS[deviceKind()];
+  }
+
+  el.install.hidden = false;
+  document.body.classList.add('is-locked');
+  el.installClose.focus();
+}
+
+function closeInstall() {
+  el.install.hidden = true;
+  document.body.classList.remove('is-locked');
+  el.installBtn.focus();
+}
+
 function openSidebar() {
   el.sidebar.classList.add('is-open');
   el.scrim.hidden = false;
@@ -957,8 +1031,23 @@ function init() {
     welcome.show();
   });
 
+  el.installBtn.addEventListener('click', openInstall);
+  el.installClose.addEventListener('click', closeInstall);
+  el.install.addEventListener('click', (e) => { if (e.target === el.install) closeInstall(); });
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();               // keep it for our own button
+    installEvent = e;
+  });
+  window.addEventListener('appinstalled', () => {
+    el.installBtn.hidden = true;
+    toast('Added to your home screen');
+  });
+  if (alreadyInstalled()) el.installBtn.hidden = true;
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && el.sidebar.classList.contains('is-open')) closeSidebar();
+    if (e.key !== 'Escape') return;
+    if (!el.install.hidden) closeInstall();
+    else if (el.sidebar.classList.contains('is-open')) closeSidebar();
   });
 
   if (!hasSeenWelcome()) {

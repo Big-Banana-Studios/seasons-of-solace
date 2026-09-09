@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seasons of Solace — model probe</title>
+</head>
+<body>
+<p>Model probe. Driven by tests/model.probe.mjs; nothing to see here.</p>
+<script type="module">
+  /* Talks to worker.js directly, bypassing app.js, so the raw model can be
+     asked the brief's prompts for the tabs the app currently composes or
+     answers by hand. Used to decide what a bigger model can be trusted with. */
+  import { TAB_BY_ID, buildSystem, pickSeed } from '../prompts.js';
+
+  const worker = new Worker('../worker.js', { type: 'module' });
+  const waiting = new Map();
+  let id = 0;
+  let ready = false;
+  const readyWaiters = [];
+
+  worker.addEventListener('message', (e) => {
+    const m = e.data;
+    if (m.type === 'ready') { ready = true; readyWaiters.forEach((r) => r()); }
+    if (m.type === 'done' && waiting.has(m.id)) { waiting.get(m.id).resolve(m.output); waiting.delete(m.id); }
+    if (m.type === 'error' && m.id && waiting.has(m.id)) { waiting.get(m.id).reject(new Error(m.message)); waiting.delete(m.id); }
+    if (m.type === 'error' && !m.id) { readyWaiters.forEach((r) => r(new Error(m.message))); }
+  });
+
+  window.probeReady = () => new Promise((resolve, reject) => {
+    if (ready) return resolve();
+    readyWaiters.push((err) => (err ? reject(err) : resolve()));
+    worker.postMessage({ type: 'load' });
+  });
+
+  window.probe = ({ tab, input = '', empty = false, prefill = '', correction = null, temperature, rawSystem = false }) => {
+    const spec = TAB_BY_ID[tab];
+    id += 1;
+    let userTurn = empty ? spec.emptyInput : input;
+    if (empty && tab === 'remind') {
+      userTurn += ` If it helps, write the reminder for someone facing: ${pickSeed()}. Do not say that you were told this.`;
+    }
+    let system = buildSystem(spec, { empty, correction });
+    // The brief's prompt as written, without the app's "write only step 1"
+    // note, so the model can be asked for the whole reply.
+    if (rawSystem) system = system.replace(/\n\nYOUR PART:[\s\S]*?(?=\n\nHOW TO SPEAK HERE:)/, '');
+    return new Promise((resolve, reject) => {
+      waiting.set(id, { resolve, reject });
+      worker.postMessage({
+        type: 'generate',
+        id,
+        system,
+        input: userTurn,
+        shown: empty ? '' : input,
+        prefill,
+        maxTokens: spec.maxTokens,
+        temperature: temperature ?? spec.temperature,
+      });
+    });
+  };
+</script>
+</body>
+</html>

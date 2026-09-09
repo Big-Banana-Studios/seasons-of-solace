@@ -153,7 +153,9 @@ test('the shapes, openers and closes are on the tabs the brief singles out', () 
   assert.equal(t.wave.prefillEmpty, "I'm here. You don't have to explain.\n\n");
   assert.equal(t.wave.closeEmpty, "Take your time. I'm not going anywhere.");
   assert.equal(t.remind.instantEmpty, true);
-  assert.ok(t.remind.systemEmpty, 'the brief\'s empty-input prompt is kept, one flag away');
+  assert.equal(t.remind.themedFirst, true);
+  assert.equal(t.remind.bankWhenUnmatched, true);
+  assert.ok(t.remind.systemEmpty && t.remind.system, 'the brief\'s reminder prompts are kept, one flag away');
   for (const tab of TABS) {
     if (tab.prefillEmpty || tab.closeEmpty || tab.instantEmpty) assert.ok(tab.allowEmpty, `${tab.id} has an empty opener but no empty variant`);
   }

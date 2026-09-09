@@ -335,7 +335,7 @@ HOW TO RESPOND:
 
 NEVER say "they'd want you to be happy" or "they're watching over you" unless the person expressed that belief first. NEVER redirect to the person's grief — this tab is about the person they LOST, not about the person who's grieving. Let them talk about who they miss without making it about their pain. Sometimes remembering is joy, not sorrow, and that's sacred.
 
-LENGTH: 4 to 7 sentences. Use the actual details they gave you — their name if they said it, the things they did. You never met this person: do not claim to remember them or to hear them yourself. Everything you know is what was just written here.`,
+LENGTH: 4 to 7 sentences. Use the actual details they gave you — their name if they said it, the things they did. You never met this person: do not claim to remember them, picture them, or think about them yourself. Everything you know is what was just written here. The person writing to you is not the person who died — never address the writer by the dead person's name.`,
   },
 
   {
@@ -454,6 +454,13 @@ FORMAT: Plain sentences spoken directly to the person. No quotation marks, no li
        asked only for a day none of those fit. */
     instantEmpty: true,
     themedFirst: true,
+    /* A day none of the themes fit used to go to the model. Both models,
+       given "I found his handwriting on a shopping list", wrote about "him"
+       finding comfort in a note — the pronouns swapped, the person missed.
+       A reminder that is true and general beats one that is specific and
+       wrong, so those days get the bank too. Turn this off to send them to
+       the model again, with the bank as the floor. */
+    bankWhenUnmatched: true,
     system: `The person wants a gentle reminder tailored to where they are today. They've told you what kind of day it is. Generate ONE short, warm reminder that speaks directly to what they shared.
 
 Read what they wrote carefully first. They are grieving someone who died. If they mention a birthday, an anniversary, a holiday or a date, it is that person's, or it is a hard day because of that person — it is not the reader's own celebration.

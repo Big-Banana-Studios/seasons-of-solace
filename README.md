@@ -4,18 +4,18 @@ A grief companion. Eight tabs, one input, one quiet reply each — built for the
 person sitting alone at 3am who needs someone to say "I'm here."
 
 It runs entirely inside the browser, on your own device, using Liquid AI's
-`LFM2.5-1.2B-Instruct` through WebGPU. No server, no account, no API key, no
-bill. Once the model has downloaded it works with no internet at all, and
-nothing you write is ever stored or sent anywhere.
+`LFM2.5-2.6B` through WebGPU. No server, no account, no API key, no bill.
+Once the model has downloaded it works with no internet at all, and nothing
+you write is ever stored or sent anywhere.
 
 **This app is for emotional companionship and self-reflection only. It is not
 therapy, not crisis counseling, and not a substitute for professional grief
 support. If you're in crisis, call or text 988.**
 
-**Version 1.0.0 · Sep 2026** — the fifth app in the Lewis family suite.
+**Version 1.1.0 · Sep 2026** — the fifth app in the Lewis family suite.
 
 **Live:** <https://big-banana-studios.github.io/seasons-of-solace/>
-(Chrome or Edge, up to date; the first visit downloads the 814 MB model once.)
+(Chrome or Edge, up to date; the first visit downloads the 1.7 GB model once.)
 
 ---
 
@@ -37,7 +37,7 @@ a real origin.
 ### What to expect the first time
 
 1. **The welcome** — five short cards. Click through, or Skip.
-2. **"One download, then it stays"** — the companion is about **814 MB** and
+2. **"One download, then it stays"** — the companion is about **1.7 GB** and
    downloads once. Use wifi. Keep the page open while the bar fills.
 3. After that it is cached by the browser. Later visits take seconds and work
    with the wifi switched off.
@@ -52,6 +52,12 @@ Opening the link *is* the check — it runs before a single byte downloads.
 | Computer | Chrome or Edge, kept up to date. |
 | iPhone / iPad | iOS 18 or newer. Every browser on iOS is Safari underneath, so installing Chrome changes nothing. |
 | Android | Chrome, updated, on Android 12 or newer. |
+
+**Add to home screen** in the sidebar gives it an icon and opens it
+full-screen. On Chrome and Edge that is one tap, using the browser's own
+install prompt. iOS has no install API at all, so there it shows the real
+steps — Share, then Add to Home Screen — because a button that silently does
+nothing is worse than none. The button hides itself once the app is installed.
 
 ### Deploying to GitHub Pages
 
@@ -97,6 +103,28 @@ seasons-of-solace/
 ```
 
 ### Decisions worth knowing about
+
+**The 2.6B model, not the 1.2B.** Version 1.0.0 shipped on
+`LFM2.5-1.2B-Instruct` like the rest of the suite. It loads in seconds and
+runs on more phones, but its replies were generic — "healing journey", "sit
+with these sensations together" — and a grief companion that sounds like a
+poster is not worth having. `LFM2.5-2.6B` answers the actual sentence the
+person typed: the two mugs where he used to sit, the pencil behind Ray's
+ear, numbness as the body's protection against feeling everything at once.
+It is one constant in `worker.js` (`MODEL_ID`) and one in `app.js`
+(`MODEL_MB`); the smaller model is noted beside it if a device cannot
+manage the larger download. Replies take ten to thirty seconds on a laptop
+GPU rather than five to ten.
+
+**The 2.6B is a thinking model, and thinking is switched off.** Its chat
+template opens every reply with a `<think>` tag and offers no way not to.
+Left alone it writes a page of analysis — "The user is sharing her grief…
+looking at my safety guidelines…" — before a word of the reply, and spends
+the token budget on it. None of that is for the person. `worker.js` closes
+the think block before generation starts, so the model answers directly;
+`safety.js` strips any think block that gets through and treats "the user",
+"my guidelines" and clinical vocabulary as the model talking to itself
+rather than to the person.
 
 **Replies are not streamed.** The brief's output filters — platitudes, toxic
 positivity, crisis language — can only be applied to a whole reply, and a
@@ -149,18 +177,21 @@ and when slotted in ("I wanted to let you know that my mum died on Sunday.
 recently" and "we lost a family member", and a wrong fact in a death
 notification is the one mistake this tab must never make.
 
-**Gentle Reminders come from people first, and the model second.** With
-nothing typed: a bank of twenty-four reminders, one true thing each, never
-the same one twice running. With something typed: the common kinds of day —
-a birthday, a holiday, a good day and the guilt after it, "let me know if
-you need anything", a day spent in bed, 3am, anger, guilt, grief that is
-years old, a dream, loneliness, the funeral, going back to work, grieving
-children, a pet — each have a reminder written for them (three are the
-brief's own examples). Only a day none of those fit goes to the model, with
-the bank as the floor under it. The model's universal reminders in testing
-were poster-speak at best and, once, "the people who left may still be
-reaching out from behind"; given "it's her birthday tomorrow" it wrote
-about "the day he was meant to share his laughter".
+**Gentle Reminders are written by people.** With nothing typed: a bank of
+twenty-four reminders, one true thing each, never the same one twice
+running. With something typed: the common kinds of day — a birthday, a
+holiday, a good day and the guilt after it, "let me know if you need
+anything", a day spent in bed, 3am, anger, guilt, grief that is years old,
+a dream, loneliness, the funeral, going back to work, grieving children, a
+pet — each have a reminder written for them (three are the brief's own
+examples), and a day none of those fit gets one from the bank. Both models
+were tried on this tab. The 1.2B's universal reminders were poster-speak at
+best and, once, "the people who left may still be reaching out from
+behind"; given "it's her birthday tomorrow" it wrote about "the day he was
+meant to share his laughter". The 2.6B, given "I found his handwriting on a
+shopping list", twice wrote about *him* finding comfort in a note. A
+reminder that is true and general beats one that is specific and wrong.
+The brief's prompts are still in `prompts.js`, one flag from being used.
 
 **The brief's closing lines are guaranteed where it writes them.** I Don't
 Know What I Feel ends on "Does that feel close to what's happening? …",
@@ -281,11 +312,16 @@ npm run check     # test + smoke
 ```
 
 `npm run model` is the one that matters most and the one that costs most:
-it downloads the model into `.model-profile/` (once, 814 MB), presses every
+it downloads the model into `.model-profile/` (once, 1.7 GB), presses every
 tab with a realistic input, and prints every reply so a person can read the
 tone. The filters can only say what a reply is *not*. Pass `--rounds=3` to
 press everything three times, or `--headed` if headless Chrome will not give
 you WebGPU.
+
+`node tests/model.probe.mjs` asks the raw model the brief's prompts for the
+tabs the app currently composes or answers by hand, unfiltered, through
+`tests/probe.html`. It is for deciding what a new model can be trusted with,
+not for checking the app.
 
 ---
 
