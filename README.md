@@ -14,6 +14,9 @@ support. If you're in crisis, call or text 988.**
 
 **Version 1.0.0 · Sep 2026** — the fifth app in the Lewis family suite.
 
+**Live:** <https://big-banana-studios.github.io/seasons-of-solace/>
+(Chrome or Edge, up to date; the first visit downloads the 814 MB model once.)
+
 ---
 
 ## Try it right now
