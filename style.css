@@ -1,0 +1,598 @@
+/* Seasons of Solace — a window onto a landscape that changes with your grief.
+
+   Rules this file follows, all for the same reason: the person using it is
+   already carrying more than they can hold.
+
+   - No textures, no patterns, no busy backgrounds. Flat warm colour only.
+   - Nothing sharp. Every corner is rounded, every edge is a tone shift or a
+     soft shadow rather than a line.
+   - More whitespace than looks necessary. This is the slowest, quietest
+     interface in the suite.
+   - Every animation is slow. The loading pulse breathes at five seconds a
+     cycle and stops entirely for anyone who asked their system for less
+     motion.
+   - Fonts are served from this folder, not from Google. The app promises
+     that nothing leaves the device, and a webfont request to a third party
+     would make that a smaller truth than it should be.
+   - The four seasons live in four accent tokens. Each tab sets its own on the
+     panel and on itself, so a colour is only ever asked for as --accent. */
+
+@font-face {
+  font-family: 'Lora';
+  src: url('./assets/fonts/lora-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito Sans';
+  src: url('./assets/fonts/nunito-sans-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-display: swap;
+}
+
+:root {
+  --bg:          #F6F2EC;   /* soft warm linen */
+  --bg-sidebar:  #EBE5DC;   /* gentle stone */
+  --text:        #3A322B;   /* deep warm brown */
+  --muted:       #8A7E73;   /* the brief's warm gray-brown: dots, rules, hints */
+  --muted-text:  #6B6055;   /* the same tone, deep enough to read at 4.5:1 */
+  --input-bg:    #FDFAF6;
+  --output-bg:   #FAF7F2;
+  --border:      #E2DBD1;
+  --on-accent:   #1A1512;   /* deep brown reads better than white on every season */
+  --scrim:       rgba(58, 50, 43, .38);
+
+  /* The four seasons. `deep` is the hover tone; `tint` is the wash behind an
+     active tab. */
+  --winter:      #8DA4B8;  --winter-deep: #7B94AA;  --winter-tint: rgba(141, 164, 184, .18);
+  --spring:      #C4929B;  --spring-deep: #B57F89;  --spring-tint: rgba(196, 146, 155, .18);
+  --summer:      #C9A84C;  --summer-deep: #B8973D;  --summer-tint: rgba(201, 168, 76, .18);
+  --autumn:      #B8895A;  --autumn-deep: #A7784A;  --autumn-tint: rgba(184, 137, 90, .18);
+
+  /* The crisis card: warm, not alarming. Distinct from every season. */
+  --crisis-bg:     #F5EAE5;
+  --crisis-accent: #A9705F;
+
+  --shadow-sm: 0 1px 3px rgba(58, 50, 43, .05);
+  --shadow-md: 0 4px 18px rgba(58, 50, 43, .07);
+  --shadow-lg: 0 10px 34px rgba(58, 50, 43, .09);
+
+  --radius:    16px;
+  --radius-sm: 14px;
+
+  --head: 'Lora', Georgia, 'Times New Roman', serif;
+  --body: 'Nunito Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  --sidebar-w: 300px;
+  --tap: 48px;
+}
+
+:root[data-theme="dark"] {
+  --bg:          #1C1916;
+  --bg-sidebar:  #15120F;
+  --text:        #E0D8CC;
+  --muted:       #8A7E6E;
+  --muted-text:  #A89C8C;
+  --input-bg:    #221E1A;
+  --output-bg:   #221E1A;
+  --border:      #3A332B;
+  --on-accent:   #1C1916;
+  --scrim:       rgba(0, 0, 0, .6);
+
+  /* The same hues, softened for the dark ground. */
+  --winter:      #9DB0C0;  --winter-deep: #B1C1CE;  --winter-tint: rgba(157, 176, 192, .16);
+  --spring:      #CBA3AA;  --spring-deep: #D8B6BC;  --spring-tint: rgba(203, 163, 170, .16);
+  --summer:      #CFB46C;  --summer-deep: #DAC384;  --summer-tint: rgba(207, 180, 108, .16);
+  --autumn:      #C09A72;  --autumn-deep: #CDAC89;  --autumn-tint: rgba(192, 154, 114, .16);
+
+  --crisis-bg:     #2A2220;
+  --crisis-accent: #C89383;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 18px rgba(0, 0, 0, .36);
+  --shadow-lg: 0 10px 34px rgba(0, 0, 0, .46);
+}
+
+/* Season → accent. Set on the panel (content area) and on each tab button,
+   so a colour is only ever asked for as --accent. */
+[data-season="winter"] { --accent: var(--winter); --accent-deep: var(--winter-deep); --accent-tint: var(--winter-tint); }
+[data-season="spring"] { --accent: var(--spring); --accent-deep: var(--spring-deep); --accent-tint: var(--spring-tint); }
+[data-season="summer"] { --accent: var(--summer); --accent-deep: var(--summer-deep); --accent-tint: var(--summer-tint); }
+[data-season="autumn"] { --accent: var(--autumn); --accent-deep: var(--autumn-deep); --accent-tint: var(--autumn-tint); }
+
+/* The whole app scales from here, so the text-size control moves everything
+   together rather than leaving buttons behind. */
+:root                      { font-size: 106.25%; }   /* 17px */
+:root[data-text="large"]   { font-size: 118.75%; }   /* 19px */
+:root[data-text="largest"] { font-size: 131.25%; }   /* 21px */
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+/* The `hidden` attribute only wins by default because the browser's own
+   stylesheet says display:none, which any display rule here outranks. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 1rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+body.is-locked { overflow: hidden; }
+
+h1, h2, h3 { font-family: var(--head); font-weight: 600; }
+
+/* Bold for emphasis, never italics. */
+em, i { font-style: normal; font-weight: 700; }
+
+a { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--text); color: var(--bg);
+  padding: 12px 20px; border-radius: 0 0 var(--radius-sm) 0; font-weight: 700;
+}
+.skip-link:focus { left: 0; }
+
+:focus-visible {
+  outline: 3px solid var(--accent, var(--winter));
+  outline-offset: 3px;
+}
+
+.layout { display: flex; min-height: 100%; }
+
+/* -------------------------------------------------------------- sidebar */
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  background: var(--bg-sidebar);
+  /* Deep top padding on phones so the open drawer clears the ☰ button, which
+     stays put and doubles as the close button. */
+  padding: 78px 18px 22px;
+  display: flex; flex-direction: column; gap: 26px;
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 30;
+  overflow: hidden;
+  transform: translateX(-100%);
+  transition: transform .34s ease;
+  box-shadow: var(--shadow-md);
+}
+.sidebar.is-open { transform: translateX(0); }
+
+.brand h1 { font-size: 1.36rem; margin: 0 0 6px; letter-spacing: -.005em; line-height: 1.3; }
+.brand-sub { margin: 0; font-size: .86rem; color: var(--muted-text); line-height: 1.5; }
+
+.tabs {
+  display: flex; flex-direction: column; gap: 5px;
+  flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  padding: 3px 0;
+}
+
+.tab {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: var(--tap);
+  border: 0; border-left: 4px solid transparent;
+  background: transparent; color: var(--muted-text);
+  font: inherit; font-size: .96rem; font-weight: 600; text-align: left;
+  padding: 10px 12px 10px 14px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background .3s ease, color .3s ease, border-color .3s ease;
+}
+.tab:hover { background: var(--accent-tint); color: var(--text); }
+.tab.is-active {
+  background: var(--accent-tint);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+.tab-icon { font-size: 1.15rem; line-height: 1; flex: 0 0 auto; }
+.tab-label { line-height: 1.35; }
+
+.sidebar-foot { display: flex; flex-direction: column; gap: 2px; padding-top: 14px; }
+.sidebar-foot::before {
+  content: ''; display: block; height: 1px; background: var(--border);
+  margin: 0 4px 12px;
+}
+
+.foot-btn {
+  min-height: 44px;
+  border: 0; background: transparent; color: var(--muted-text);
+  font: inherit; font-size: .88rem; text-align: left;
+  padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background .3s ease, color .3s ease;
+}
+.foot-btn:hover { background: rgba(138, 126, 115, .12); color: var(--text); }
+
+.status {
+  margin: 12px 0 2px; padding: 0 12px; font-size: .8rem; color: var(--muted-text);
+  display: flex; align-items: center; gap: 8px;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--muted); opacity: .55;
+}
+.status-mark { line-height: 1; }
+.status.is-ok .status-dot { display: none; }
+.status.is-busy .status-dot { animation: breathe 5s ease-in-out infinite; opacity: 1; }
+.status.is-error .status-dot { background: var(--crisis-accent); opacity: 1; }
+
+/* Version indicator: muted, out of the way. */
+.version { margin: 0; padding: 0 12px; font-size: .74rem; color: var(--muted); }
+.version.is-stale { color: var(--text); font-weight: 700; }
+
+.menu-toggle, .theme-toggle-top {
+  position: fixed; top: calc(12px + env(safe-area-inset-top)); z-index: 40;
+  width: var(--tap); height: var(--tap);
+  border: 0; background: var(--bg-sidebar); color: var(--text);
+  font-size: 1.2rem; line-height: 1;
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md); cursor: pointer;
+}
+.menu-toggle { left: 12px; }
+.theme-toggle-top { right: 12px; }
+
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 25; }
+
+/* -------------------------------------------------------------- content */
+
+.content {
+  flex: 1; min-width: 0;
+  padding: 80px 18px 0;
+  display: flex; justify-content: center;
+}
+
+.panel {
+  width: 100%; max-width: 680px;
+  display: flex; flex-direction: column; gap: 30px;
+  min-height: calc(100vh - 80px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.panel:focus { outline: none; }
+.panel.is-switching { opacity: 0; transform: translateY(6px); }
+
+.panel-head h2 { font-size: 1.7rem; margin: 0 0 8px; letter-spacing: -.005em; line-height: 1.3; }
+.panel-desc { margin: 0; color: var(--muted-text); font-size: 1rem; max-width: 56ch; line-height: 1.6; }
+
+.card {
+  background: var(--input-bg);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow-md);
+}
+
+.input-card {
+  border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: border-color .4s ease, box-shadow .4s ease;
+}
+.input-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-tint);
+}
+
+textarea {
+  width: 100%; min-height: 150px; max-height: 520px; resize: vertical;
+  border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text);
+  font-family: var(--body); font-size: 1.02rem; line-height: 1.75;
+  padding: 8px 6px; outline: none;
+}
+textarea::placeholder { color: var(--muted-text); opacity: .8; }
+/* The card around it shows focus (border and tint); a second ring inside it
+   would be one line too many. */
+textarea:focus-visible { outline: none; }
+textarea.nudge { animation: nudge .6s ease; }
+
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  30%      { transform: translateX(-4px); }
+  70%      { transform: translateX(4px); }
+}
+
+.input-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 12px; flex-wrap: wrap;
+}
+.counter { font-size: .8rem; color: var(--muted); }
+.counter.is-full { color: var(--text); font-weight: 700; }
+.actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+.btn {
+  min-height: var(--tap);
+  border: 0; background: var(--accent, var(--winter)); color: var(--on-accent);
+  font-family: var(--body); font-size: 1.02rem; font-weight: 700;
+  padding: 12px 26px; border-radius: var(--radius-sm); cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background .3s ease, transform .15s ease, opacity .3s ease;
+}
+.btn:hover:not(:disabled) { background: var(--accent-deep, var(--winter-deep)); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.btn-ghost {
+  min-height: 44px;
+  border: 0; background: transparent; color: var(--muted-text);
+  font: inherit; font-size: .88rem; padding: 10px 14px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: background .3s ease, color .3s ease;
+}
+.btn-ghost:hover { background: rgba(138, 126, 115, .12); color: var(--text); }
+
+/* --------------------------------------------------------------- output
+
+   A warm card with the faintest seasonal ribbon down the left, like a
+   bookmark. Generous padding and the widest line spacing in the suite —
+   grief content needs room to breathe on the page. */
+
+.output-card {
+  background: var(--output-bg);
+  border-left: 4px solid var(--accent, var(--winter));
+  box-shadow: var(--shadow-lg);
+  padding: 28px 28px 14px;
+  transition: border-color .4s ease;
+}
+.output-card:focus { outline: none; }
+
+.output-body { font-size: 1.06rem; line-height: 1.9; overflow-wrap: break-word; }
+.output-body > *:first-child { margin-top: 0; }
+.output-body > *:last-child { margin-bottom: 0; }
+.output-body p { margin: 0 0 20px; }
+.output-body ul, .output-body ol { margin: 0 0 20px; padding-left: 26px; }
+.output-body li { margin-bottom: 10px; }
+.output-body li::marker { color: var(--accent, var(--winter)); }
+.output-body strong { font-weight: 700; }
+
+.output-tools {
+  display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end;
+  margin-top: 16px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.notice { margin: 0; color: var(--text); font-size: 1.02rem; }
+.output-card.is-notice { border-left-color: var(--border); }
+
+.loading { display: flex; align-items: center; gap: 16px; color: var(--muted-text); padding: 8px 0; }
+.pulse {
+  width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--accent, var(--winter));
+  animation: breathe 5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: .3; transform: scale(.8); }
+  50%      { opacity: .9; transform: scale(1.1); }
+}
+
+/* The crisis card. A different colour, no tools, nothing to press except the
+   two numbers — it is not a reply, it is somebody saying something. */
+.output-card.is-crisis {
+  background: var(--crisis-bg);
+  border-left-color: var(--crisis-accent);
+}
+.is-crisis .output-body { font-size: 1.08rem; }
+.is-crisis .output-body strong { color: var(--text); }
+.crisis-link {
+  display: inline-block; min-height: 44px; line-height: 44px;
+  padding: 0 4px; text-decoration-thickness: 2px;
+}
+
+/* The line under the crisis card, for the person who only meant they were
+   worn out. Quieter than the card; still readable. */
+.output-note {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: .92rem;
+  line-height: 1.7;
+  color: var(--muted-text);
+}
+.is-crisis .output-note + .output-tools { display: none; }
+.is-crisis .output-note { margin-bottom: 14px; }
+
+/* ----------------------------------------------------------- disclaimer
+
+   Always visible, always with the number. Sticks to the bottom of the
+   viewport so a long reply never scrolls it away. */
+.disclaimer {
+  position: sticky; bottom: 0;
+  margin-top: auto;
+  padding: 14px 4px calc(14px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: .84rem; line-height: 1.55;
+  color: var(--muted-text);
+  text-align: center;
+}
+.disclaimer a { font-weight: 700; color: var(--text); }
+
+/* ----------------------------------------------------------------- gate */
+
+.gate {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.gate.is-hushed { display: none; }
+
+.gate-card {
+  background: var(--input-bg); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); padding: 36px 30px 26px;
+  max-width: 460px; width: 100%; text-align: center;
+}
+.gate-mark { font-size: 2.6rem; line-height: 1; margin-bottom: 14px; }
+.gate-card h2 { font-size: 1.4rem; margin: 0 0 14px; }
+.gate-body { color: var(--muted-text); font-size: .98rem; margin-bottom: 22px; text-align: left; line-height: 1.7; }
+.gate-body strong { color: var(--text); }
+.gate-body .detail, .gate-body code {
+  display: block; background: var(--output-bg); color: var(--text);
+  border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 6px;
+  font-family: ui-monospace, Consolas, monospace; font-size: .78rem;
+  line-height: 1.5; overflow-wrap: anywhere;
+  -webkit-user-select: all; user-select: all;
+}
+.gate-card .btn { width: 100%; background: var(--autumn); }
+.gate-card .btn:hover:not(:disabled) { background: var(--autumn-deep); }
+.gate-foot { margin: 22px 0 0; font-size: .84rem; color: var(--muted-text); }
+
+.ready-list { list-style: none; margin: 16px 0 0; padding: 0; }
+.ready-list li { font-size: .92rem; margin-bottom: 6px; color: var(--text); }
+.ready-list .is-warning { font-weight: 700; }
+
+.bar { margin-bottom: 18px; }
+.bar-track { height: 10px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: var(--autumn); border-radius: 999px; transition: width .5s ease; }
+.bar-label { margin: 10px 0 0; font-size: .84rem; color: var(--muted-text); font-variant-numeric: tabular-nums; }
+
+/* -------------------------------------------------------------- welcome
+
+   Five cards, fewer words than any other app in the suite. Set in Lora so
+   the onboarding already feels like the app itself: unhurried, gentle,
+   present. */
+
+.welcome {
+  position: fixed; inset: 0; z-index: 80;
+  background: var(--scrim);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+.welcome-card {
+  position: relative;
+  background: var(--input-bg); border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 480px; max-height: 90vh;
+  padding: 40px 30px 24px;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+
+.welcome-skip {
+  position: absolute; top: 12px; right: 14px;
+  border: 0; background: transparent; color: var(--muted-text);
+  font: inherit; font-size: .84rem; padding: 10px 14px;
+  border-radius: var(--radius-sm); cursor: pointer; min-height: 44px;
+}
+.welcome-skip:hover { color: var(--text); background: rgba(138, 126, 115, .12); }
+
+.welcome-stage { flex: 1; text-align: center; padding: 20px 0 28px; }
+.welcome-stage.slide-next { animation: slide-in-right .5s ease; }
+.welcome-stage.slide-back { animation: slide-in-left .5s ease; }
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.welcome-mark { font-size: 3rem; line-height: 1.2; margin-bottom: 22px; }
+.welcome-lines {
+  font-family: var(--head); font-size: 1.22rem; line-height: 2.05;
+  margin: 0; color: var(--text);
+}
+.welcome-crisis {
+  margin: 30px auto 0; max-width: 24rem;
+  padding: 16px 18px; border-radius: var(--radius-sm);
+  background: var(--crisis-bg);
+  font-size: .98rem; line-height: 1.8; color: var(--text);
+}
+.welcome-crisis a { font-weight: 700; }
+
+.welcome-foot {
+  position: sticky; bottom: 0;
+  display: flex; flex-direction: column; gap: 18px; align-items: center;
+  background: var(--input-bg);
+  padding: 14px 0 4px;
+  margin-top: auto;
+}
+
+.welcome-dots { display: flex; gap: 8px; }
+.welcome-dot {
+  width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
+  cursor: pointer; display: grid; place-items: center;
+}
+.welcome-dot::after {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border);
+  transition: background .3s ease, transform .3s ease;
+}
+.welcome-dot.is-on::after { background: var(--autumn); transform: scale(1.25); }
+
+.welcome-nav { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: center; }
+.welcome-nav .btn { flex: 1; max-width: 320px; background: var(--autumn); }
+.welcome-nav .btn:hover:not(:disabled) { background: var(--autumn-deep); }
+
+/* ---------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 50%;
+  transform: translate(-50%, 12px);
+  background: var(--text); color: var(--bg);
+  font-size: .88rem; font-weight: 600;
+  padding: 12px 22px; border-radius: 999px; box-shadow: var(--shadow-lg);
+  opacity: 0; pointer-events: none; z-index: 95;
+  transition: opacity .35s ease, transform .35s ease;
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ------------------------------------------ wider screens (tablet, desktop) */
+
+@media (min-width: 900px) {
+  .menu-toggle, .theme-toggle-top, .scrim { display: none; }
+  .sidebar { position: sticky; height: 100vh; transform: none; padding-top: 34px; box-shadow: none; }
+  .content { padding: 64px 48px 0; }
+  .panel { gap: 34px; min-height: calc(100vh - 64px); }
+  .panel-head h2 { font-size: 1.95rem; }
+  .card { padding: 26px; }
+  .output-card { padding: 34px 34px 16px; }
+  .welcome-card { padding: 48px 44px 28px; }
+  .disclaimer { padding-top: 16px; padding-bottom: 20px; }
+}
+
+/* Phones: the welcome is nearly the whole screen, and the tools stack. */
+@media (max-width: 560px) {
+  .welcome { padding: 10px; }
+  .welcome-card { max-height: 96vh; border-radius: 20px; padding: 40px 22px 18px; }
+  .welcome-mark { font-size: 2.6rem; }
+  .welcome-lines { font-size: 1.12rem; line-height: 1.95; }
+  .output-card { padding: 24px 22px 12px; }
+  .output-tools { width: 100%; }
+  .input-foot .actions { width: 100%; justify-content: flex-end; }
+  .btn { flex: 1; }
+}
+
+/* ------------------------------------------------------------------ print */
+
+@media print {
+  .sidebar, .menu-toggle, .theme-toggle-top, .scrim, .gate, .welcome, .toast,
+  .input-card, .output-tools { display: none !important; }
+  body { background: #fff; color: #000; }
+  .content { padding: 0; }
+  .output-card { box-shadow: none; background: #fff; }
+  .disclaimer { position: static; }
+}
+
+/* ----------------------------------------------------------- less motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The pulse still needs to say "working", so it holds still and visible
+     rather than vanishing at whatever frame it stopped on. */
+  .pulse { opacity: .8; transform: none; }
+  .status.is-busy .status-dot { opacity: 1; }
+}

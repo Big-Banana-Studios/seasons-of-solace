@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-text="normal">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seasons of Solace</title>
+<meta name="description" content="A quiet grief companion that runs entirely on your own device. Not therapy, not crisis support — a place to sit with what you're carrying.">
+<meta name="theme-color" content="#F6F2EC">
+
+<!-- Locked down on purpose. Scripts may only come from this site and the one
+     pinned library; nothing on this page can be talked into loading code from
+     anywhere else. connect-src allows any https host because the model is
+     fetched from Hugging Face, which redirects across several CDN hostnames;
+     jsdelivr appears in worker-src because Transformers.js spawns its own
+     worker from the library URL. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' blob: https://cdn.jsdelivr.net 'wasm-unsafe-eval';
+  worker-src 'self' blob: https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline';
+  font-src 'self';
+  img-src 'self' data:;
+  connect-src 'self' blob: data: https:;
+  object-src 'none';
+  frame-src 'none';
+  base-uri 'self';
+  form-action 'none';">
+
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+<link rel="preload" href="./assets/fonts/lora-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/nunito-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#panel">Skip to the main part</a>
+
+<button class="menu-toggle" id="menuToggle" type="button" aria-label="Show the tabs" aria-expanded="false" aria-controls="sidebar">☰</button>
+<button class="theme-toggle-top" id="themeToggleTop" type="button" aria-label="Switch to night mode" aria-pressed="false">🌙</button>
+
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar">
+    <header class="brand">
+      <h1><span aria-hidden="true">🍃</span> Seasons of Solace</h1>
+      <p class="brand-sub">Every season of grief has a place here.</p>
+    </header>
+
+    <nav class="tabs" id="tabs" aria-label="Where are you right now?"></nav>
+
+    <footer class="sidebar-foot">
+      <button class="foot-btn" id="themeToggle" type="button" aria-pressed="false">🌙 Night mode</button>
+      <button class="foot-btn" id="textSizeBtn" type="button">🔠 Text size: normal</button>
+      <button class="foot-btn" id="aboutBtn" type="button">🍃 About</button>
+      <p class="status" id="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-mark" id="statusMark" aria-hidden="true"></span>
+        <span id="statusText">Checking…</span>
+      </p>
+      <p class="version" id="version">v1.0.0 · Sep 2026</p>
+    </footer>
+  </aside>
+
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main class="content">
+    <div class="panel" id="panel" tabindex="-1" data-season="winter">
+      <header class="panel-head">
+        <h2 id="tabTitle"></h2>
+        <p id="tabDesc" class="panel-desc"></p>
+      </header>
+
+      <section class="card input-card" aria-label="Your words">
+        <label class="visually-hidden" for="input">Type here</label>
+        <textarea id="input" rows="5" spellcheck="true" autocomplete="off"
+                  autocorrect="on" autocapitalize="sentences"></textarea>
+        <div class="input-foot">
+          <span class="counter" id="counter">0 words · 0 of 3000 characters</span>
+          <div class="actions">
+            <button class="btn-ghost" id="clearBtn" type="button">Clear</button>
+            <button class="btn" id="submitBtn" type="button"></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card output-card" id="outputCard" tabindex="-1" hidden aria-labelledby="outputLabel">
+        <h3 class="visually-hidden" id="outputLabel">Here</h3>
+        <div class="output-body" id="output" role="status" aria-live="polite"></div>
+        <p class="output-note" id="outputNote" hidden></p>
+        <div class="output-tools" id="outputTools">
+          <button class="btn-ghost" id="copyBtn" type="button">Copy</button>
+          <button class="btn-ghost" id="speakBtn" type="button" aria-pressed="false">🔈 Read aloud</button>
+        </div>
+      </section>
+
+      <!-- Layer 7. Hardcoded, on every screen, not removable by any code path. -->
+      <footer class="disclaimer" id="disclaimer">
+        <span aria-hidden="true">🍃</span> For emotional companionship only. Not a substitute for therapy or crisis support.
+        If you're in crisis, call or text <a href="tel:988">988</a>.
+      </footer>
+    </div>
+  </main>
+
+</div>
+
+<!-- Covers the app until the companion is on the device. Visible from the
+     start on purpose: a page that looks ready but isn't is worse than one
+     that says so. -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-mark" aria-hidden="true">🍃</div>
+    <h2 id="gateTitle">Getting things ready…</h2>
+    <div class="gate-body" id="gateBody">Checking whether this device can run the companion.</div>
+    <div class="bar" id="bar" hidden>
+      <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+      <p class="bar-label" id="barLabel"></p>
+    </div>
+    <button class="btn" id="gateAction" type="button" hidden></button>
+    <p class="gate-foot">If you're in crisis, call or text <a href="tel:988">988</a>.</p>
+  </div>
+</div>
+
+<div class="welcome" id="welcome" hidden></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
