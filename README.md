@@ -14,8 +14,16 @@ support. If you're in crisis, call or text 988.**
 
 **Version 1.1.0 · Sep 2026** — the fifth app in the Lewis family suite.
 
-**Live:** <https://big-banana-studios.github.io/seasons-of-solace/>
-(Chrome or Edge, up to date; the first visit downloads the 1.7 GB model once.)
+**Status: shelved, not published.** The app is complete and tested, but
+neither on-device model tried (`LFM2.5-1.2B-Instruct`, then `LFM2.5-2.6B`)
+answers a grieving person's actual words steadily enough for this subject.
+The safety layers keep every reply harmless; they cannot make one worth
+reading. GitHub Pages was switched off in Sep 2026 so nobody finds it in
+this state. Everything is in place to pick up when a better model can run
+in a browser: the model is two constants (`MODEL_ID` in `worker.js`,
+`MODEL_MB` in `app.js`), `npm run model` prints every reply for a person
+to judge, and `tests/model.probe.mjs` asks a candidate model the raw
+prompts. To publish again, turn Pages on for the `main` branch, root.
 
 ---
 
